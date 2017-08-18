@@ -34,19 +34,19 @@ These are the options Terminator currently supports in the global_config section
 .TP
 .B dbus
 Control whether or not Terminator will load its DBus server. When this server is loaded, running Terminator multiple times will cause the first Terminator process to open additional windows. If this configuration item is set to False, or the python dbus module is unavailable, running Terminator multiple times will run a separate Terminator process for each invocation.
-Default value: \fBFalse\fR
+Default value: \fBTrue\fR
 .TP
 .B focus
 Control how focus is given to terminals. 'click' means the focus only moves to a terminal after you click in it. 'sloppy' means the focus will follow the mouse pointer. 'system' means the focus will match that used by a GNOME window manager.
 Default value: \fBclick\fR
 .TP
 .B handle_size
-Controls the width of the separator between terminals. Anything outside the range 0-5 (inclusive) will be ignored and use your default theme value.
+Controls the width of the separator between terminals. Anything outside the range 0-20 (inclusive) will be ignored and use your default theme value.
 Default value: \fB-1\fR
 .TP
 .B geometry_hinting
 If True the window will resize in step with font sizes, if False it will follow pixels
-Default value: \fBTrue\fR
+Default value: \fBFalse\fR
 .TP
 .B window_state
 When set to 'normal' the Terminator window opens normally. 'maximise' opens the window in a maximised state, 'fullscreen' in a fullscreen state and 'hidden' will make it not shown by default.
@@ -135,6 +135,14 @@ RGB(100,100,100).
 Controls whether splits/tabs will continue to use the profile of their peer terminal. If set to False, they will always use
 the default profile.
 Default value: \fBFalse\fR
+.TP
+.B putty_paste_style \fR(boolean)
+If set to True, right-click will paste the Primary selection, middle-click will popup the context menu.
+Default value: \fBFalse\fR
+.TP
+.B smart_copy \fR(boolean)
+If set to True, and there is no selection, the shortcut is allowed to pass through. This is useful for overloading Ctrl-C to copy a selection, or send the SIGINT to the current process if there is no selection. If False the shortcut does not pass through at all, and the SIGINT does not get sent.
+Default value: \fBTrue\fR
 .TP
 .B enabled_plugins
 A list of plugins which should be loaded by default. All other plugin classes will be ignored. The default value includes two
@@ -278,6 +286,18 @@ Note that <Alt><Shift>1 may need to be provided as <Alt>! or similar,
 depending on your keyboard layout.
 Default value: \fBUnbound\fR
 .TP
+.B edit_window_title
+Edit the current active window's title
+Default value: \fB<Ctrl><Alt>W\fR
+.TP
+.B edit_tab_title
+Edit the currently active tab's title
+Default value: \fB<Ctrl><Alt>A\fR
+.TP
+.B edit_terminal_title
+Edit the currently active terminal's title
+Default value: \fB<Ctrl><Alt>X\fR
+.TP
 .B full_screen
 Toggle the window to a fullscreen window.
 Default value: \fBF11\fR
@@ -326,10 +346,6 @@ Each profile should be its own subsection with a header in the format \fB[[name]
 If true, allow applications in the terminal to make text boldface.
 Default value: \fBTrue\fR
 .TP
-.B antialias\fR (boolean)
-If false, do not apply anti-aliasing to fonts in the terminal.
-Default value: \fBTrue\fR
-.TP
 .B audible_bell\fR (boolean)
 If true, make a noise when applications send the escape sequence for the terminal bell.
 Default value: \fBFalse\fR
@@ -363,12 +379,8 @@ A value between 0.0 and 1.0 indicating how much to darken the background image. 
 Default value: \fB0.5\fR
 .TP
 .B background_type
-Type of terminal background. May be "solid" for a solid colour, "image" for an image, or "transparent" for full transparency in compositing window managers, otherwise pseudo transparency.
+Type of terminal background. May be "solid" for a solid colour or "transparent" for full transparency in compositing window managers.
 Default value: \fBsolid\fR
-.TP
-.B background_image
-Path to an image file to be used for the background of terminals.
-Default value: Nothing
 .TP
 .B backspace_binding
 Sets what code the backspace key generates. Possible values are "ascii-del" for the ASCII DEL character, "control-h" for Control-H (AKA the ASCII BS character), "escape-sequence" for the escape sequence typically bound to backspace or delete. "ascii-del" is normally considered the correct setting for the Backspace key.
@@ -394,17 +406,13 @@ Default value: Current value of \fBforeground_color\fR
 Default shape of cursor. Possibilities are "block", "ibeam", and "underline".
 Default value: \fBblock\fR
 .TP
-.B emulation
-Sets what type of terminal should be emulated.
-Default value: \fBxterm\fR
-.TP
-.B xterm
+.B term
 This translates into the value that will be set for TERM in the environment of your terminals.
-Default value: \fBxterm\fR
+Default value: \fBxterm-256color\fR
 .TP
 .B colorterm
 This translates into the value that will be set for COLORTERM in the environment of your terminals.
-Default value: \fBgnome-terminal\fR
+Default value: \fBtruecolor\fR
 .TP
 .B use_system_font
 Whether or not to use the GNOME default monospace font for terminals.
@@ -436,18 +444,14 @@ Default value: \fBTrue\fR
 .TP
 .B scroll_on_output \fR(boolean)
 If true, whenever there's new output the terminal will scroll to the bottom.
-Default value: \fBTrue\fR
-.TP
-.B alternate_screen_scroll \fR(boolean)
-Whether or not the mouse wheel scrolls alternate screen buffers (man, vim, mutt, etc). This is the default behavior of VTE, however Ubuntu and possbly other distributions feature patched versions of VTE where this functionality is optional. The option only effects the patched versions of VTE, otherwise it is ignored.
-Default value: \fBTrue\fR
+Default value: \fBFalse\fR
 .TP
 .B scrollback_lines
-Number of scrollback lines to keep around. You can scroll back in the terminal by this number of lines; lines that don't fit in the scrollback are discarded. Be careful with this setting; it's the primary factor in determining how much memory the terminal will use.
+Number of scrollback lines to keep around. You can scroll back in the terminal by this number of lines; lines that don't fit in the scrollback are discarded. Warning: with large values, rewrapping on resize might be slow.
 Default value: \fB500\fR
 .TP
 .B scrollback_infinite
-If this is set to True, scrollback_lines will be ignored and VTE will continue to allocate RAM for scrollback history.
+If this is set to True, scrollback_lines will be ignored and VTE will keep the entire scrollback history.
 Default value: \fBFalse\fR
 .TP
 .B focus_on_close
@@ -463,8 +467,8 @@ Default value: \fBclose\fR
 Terminals have a 16-colour palette that applications inside the terminal can use. This is that palette, in the form of a colon-separated list of colour names. Colour names should be in hex format e.g. "#FF00FF".
 .TP
 .B word_chars
-When selecting text by word, sequences of these characters are considered single words. Ranges can be given as "A-Z". Literal hyphen (not expressing a range) should be the first character given.
-Default value: \fB'\-A\-Za\-z0\-9,./?%&#:_'\fR
+When selecting text by word, sequences of these characters are also considered members of single words. The hyphen and alphanumerics do not need to be specified. Ranges can be given as "A-Z".
+Default value: \fB',./?%&#:_'\fR
 .TP
 .B mouse_autohide \fR(boolean)
 Controls whether the mouse cursor should be hidden while typing.
@@ -489,6 +493,10 @@ Default value: \fBUTF-8\fR
 .B copy_on_selection \fR(boolean)
 If set to True, text selections will be automatically copied to the clipboard, in addition to being made the Primary selection.
 Default value: \fBFalse\fR
+.TP
+.B rewrap_on_resize \fR(boolean)
+If True, the terminal contents are rewrapped when the terminal's width changes. Warning: This might be slow if you have a huge scrollback buffer.
+Default value: \fBTrue\fR
 
 .SH layouts
 
@@ -511,4 +519,5 @@ Window objects may not have a parent attribute. \fBEvery\fR other object must sp
 Terminator plugins can add their own configuration to the config file, and will appear as a sub-section. Please refer to the documentation of individual plugins for more information.
 
 .SH "SEE ALSO"
-.BR gnome\-terminal(1), http://www.voidspace.org.uk/python/configobj.html
+.TP
+\fBterminator\fP(1), http://www.voidspace.org.uk/python/configobj.html

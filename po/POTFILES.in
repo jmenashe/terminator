@@ -2,7 +2,8 @@
 # Please keep this file sorted alphabetically.
 #
 [encoding: UTF-8]
-terminator
+remotinator.py
+terminator.py
 data/terminator.desktop.in
 data/terminator.appdata.xml.in
 terminatorlib/borg.py

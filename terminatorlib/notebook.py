@@ -1,10 +1,12 @@
-#!/usr/bin/python
+#!/usr/bin/env python2
 # Terminator by Chris Jones <cmsj@tenshu.net>
 # GPL v2 only
 """notebook.py - classes for the notebook widget"""
 
-import gobject
-import gtk
+from gi.repository import GObject
+from gi.repository import Gtk
+from gi.repository import Gdk
+from gi.repository import Gio
 
 from terminator import Terminator
 from config import Config
@@ -14,8 +16,8 @@ from editablelabel import EditableLabel
 from translation import _
 from util import err, dbg, enumerate_descendants, make_uuid
 
-class Notebook(Container, gtk.Notebook):
-    """Class implementing a gtk.Notebook container"""
+class Notebook(Container, Gtk.Notebook):
+    """Class implementing a Gtk.Notebook container"""
     window = None
     last_active_term = None
     pending_on_tab_switch = None
@@ -23,25 +25,27 @@ class Notebook(Container, gtk.Notebook):
 
     def __init__(self, window):
         """Class initialiser"""
-        if isinstance(window.get_child(), gtk.Notebook):
+        if isinstance(window.get_child(), Gtk.Notebook):
             err('There is already a Notebook at the top of this window')
             raise(ValueError)
 
         Container.__init__(self)
-        gtk.Notebook.__init__(self)
+        GObject.GObject.__init__(self)
         self.terminator = Terminator()
         self.window = window
-        gobject.type_register(Notebook)
+        GObject.type_register(Notebook)
         self.register_signals(Notebook)
         self.connect('switch-page', self.deferred_on_tab_switch)
+        self.connect('scroll-event', self.on_scroll_event)
         self.configure()
 
         child = window.get_child()
         window.remove(child)
         window.add(self)
+        window_last_active_term = window.last_active_term
         self.newtab(widget=child)
-        if window.last_active_term:
-            self.set_last_active_term(window.last_active_term)
+        if window_last_active_term:
+            self.set_last_active_term(window_last_active_term)
             window.last_active_term = None
 
         self.show_all()
@@ -52,24 +56,23 @@ class Notebook(Container, gtk.Notebook):
         # the new order of terminals. We probably need to preserve this for
         # navigation to next/prev terminals.
         #self.connect('page-reordered', self.on_page_reordered)
-        self.set_property('homogeneous', self.config['homogeneous_tabbar'])
         self.set_scrollable(self.config['scroll_tabbar'])
 
         if self.config['tab_position'] == 'hidden' or self.config['hide_tabbar']:
             self.set_show_tabs(False)
         else:
             self.set_show_tabs(True)
-            pos = getattr(gtk, 'POS_%s' % self.config['tab_position'].upper())
+            pos = getattr(Gtk.PositionType, self.config['tab_position'].upper())
             self.set_tab_pos(pos)
 
         for tab in xrange(0, self.get_n_pages()):
             label = self.get_tab_label(self.get_nth_page(tab))
             label.update_angle()
 
-        style = gtk.RcStyle()
-        style.xthickness = 0
-        style.ythickness = 0
-        self.modify_style(style)
+#        style = Gtk.RcStyle()  # FIXME FOR GTK3 how to do it there? actually do we really want to override the theme?
+#        style.xthickness = 0
+#        style.ythickness = 0
+#        self.modify_style(style)
         self.last_active_term = {}
 
     def create_layout(self, layout):
@@ -132,7 +135,7 @@ class Notebook(Container, gtk.Notebook):
 
         if layout.has_key('active_page'):
             # Need to do it later, or layout changes result
-            gobject.idle_add(self.set_current_page, int(layout['active_page']))
+            GObject.idle_add(self.set_current_page, int(layout['active_page']))
         else:
             self.set_current_page(0)
 
@@ -159,13 +162,17 @@ class Notebook(Container, gtk.Notebook):
         if not sibling:
             sibling = maker.make('terminal')
             sibling.set_cwd(cwd)
+            if self.config['always_split_with_profile']:
+                sibling.force_set_profile(None, widget.get_profile())
             sibling.spawn_child()
             if widget.group and self.config['split_to_group']:
                 sibling.set_group(None, widget.group)
-        if self.config['always_split_with_profile']:
+        elif self.config['always_split_with_profile']:
             sibling.force_set_profile(None, widget.get_profile())
 
         self.insert_page(container, None, page_num)
+        self.child_set_property(container, 'tab-expand', True)
+        self.child_set_property(container, 'tab-fill', True)
         self.set_tab_reorderable(container, True)
         self.set_tab_label(container, label)
         self.show_all()
@@ -180,11 +187,11 @@ class Notebook(Container, gtk.Notebook):
 
         self.show_all()
 
-        while gtk.events_pending():
-            gtk.main_iteration_do(False)
+        while Gtk.events_pending():
+            Gtk.main_iteration_do(False)
         self.get_toplevel().set_pos_by_ratio = False
 
-        gobject.idle_add(terminal.ensure_visible_and_focussed)
+        GObject.idle_add(terminal.ensure_visible_and_focussed)
 
     def add(self, widget, metadata=None):
         """Add a widget to the container"""
@@ -217,8 +224,10 @@ class Notebook(Container, gtk.Notebook):
         label = self.get_tab_label(widget)
         if not label:
             dbg('unable to find label for widget: %s' % widget)
+        elif label.get_custom_label():
+            metadata['label'] = label.get_custom_label()
         else:
-            metadata['label'] = label.get_label()
+            dbg('don\'t grab the label as it was not customised')
         return metadata
 
     def get_children(self):
@@ -238,8 +247,10 @@ class Notebook(Container, gtk.Notebook):
             widget = maker.make('Terminal')
             if cwd:
                 widget.set_cwd(cwd)
+            if profile and self.config['always_split_with_profile']:
+                widget.force_set_profile(None, profile)
             widget.spawn_child(debugserver=debugtab)
-        if profile and self.config['always_split_with_profile']:
+        elif profile and self.config['always_split_with_profile']:
             widget.force_set_profile(None, profile)
 
         signals = {'close-term': self.wrapcloseterm,
@@ -296,9 +307,8 @@ class Notebook(Container, gtk.Notebook):
                 break
 
         self.set_tab_label(widget, label)
-        self.set_tab_label_packing(term_widget, not self.config['scroll_tabbar'],
-                                   not self.config['scroll_tabbar'],
-                                   gtk.PACK_START)
+        self.child_set_property(widget, 'tab-expand', True)
+        self.child_set_property(widget, 'tab-fill', True)
 
         self.set_tab_reorderable(widget, True)
         self.set_current_page(tabpos)
@@ -348,7 +358,7 @@ class Notebook(Container, gtk.Notebook):
             dbg('Notebook::closetab: child is a Container')
             result = self.construct_confirm_close(self.window, _('tab'))
 
-            if result == gtk.RESPONSE_ACCEPT:
+            if result == Gtk.ResponseType.ACCEPT:
                 containers = None
                 objects = None
                 containers, objects = enumerate_descendants(child)
@@ -356,8 +366,8 @@ class Notebook(Container, gtk.Notebook):
                 while len(objects) > 0:
                     descendant = objects.pop()
                     descendant.close()
-                    while gtk.events_pending():
-                        gtk.main_iteration()
+                    while Gtk.events_pending():
+                        Gtk.main_iteration()
                 return
             else:
                 dbg('Notebook::closetab: user cancelled request')
@@ -468,7 +478,7 @@ class Notebook(Container, gtk.Notebook):
         self.pending_on_tab_switch_args = (notebook, page,  page_num,  data)
         if self.pending_on_tab_switch == True:
             return
-        gobject.idle_add(self.do_deferred_on_tab_switch)
+        GObject.idle_add(self.do_deferred_on_tab_switch)
         self.pending_on_tab_switch = True
 
     def do_deferred_on_tab_switch(self):
@@ -482,10 +492,59 @@ class Notebook(Container, gtk.Notebook):
         tabs_last_active_term = data['tabs_last_active_term']
         if tabs_last_active_term:
             term = self.terminator.find_terminal_by_uuid(tabs_last_active_term.urn)
-            gobject.idle_add(term.ensure_visible_and_focussed)
+            GObject.idle_add(term.ensure_visible_and_focussed)
         return True
 
-class TabLabel(gtk.HBox):
+    def on_scroll_event(self, notebook, event):
+        '''Handle scroll events for scrolling through tabs'''
+        #print "self: %s" % self
+        #print "event: %s" % event
+        child = self.get_nth_page(self.get_current_page())
+        if child == None:
+            print "Child = None,  return false"
+            return False
+
+        event_widget = Gtk.get_event_widget(event)
+        
+        if event_widget == None or \
+           event_widget == child or \
+           event_widget.is_ancestor(child):
+            print "event_widget is wrong one,  return false"
+            return False
+
+        # Not sure if we need these. I don't think wehave any action widgets
+        # at this point.
+        action_widget = self.get_action_widget(Gtk.PackType.START)
+        if event_widget == action_widget or \
+           (action_widget != None and event_widget.is_ancestor(action_widget)):
+            return False
+        action_widget = self.get_action_widget(Gtk.PackType.END)
+        if event_widget == action_widget or \
+           (action_widget != None and event_widget.is_ancestor(action_widget)):
+            return False
+
+        if event.direction in [Gdk.ScrollDirection.RIGHT,
+                               Gdk.ScrollDirection.DOWN]:
+            self.next_page()
+        elif event.direction in [Gdk.ScrollDirection.LEFT,
+                                 Gdk.ScrollDirection.UP]:
+            self.prev_page()
+        elif event.direction == Gdk.ScrollDirection.SMOOTH:
+            if self.get_tab_pos() in [Gtk.PositionType.LEFT,
+                                      Gtk.PositionType.RIGHT]:
+                if event.delta_y > 0:
+                    self.next_page()
+                elif event.delta_y < 0:
+                    self.prev_page()
+            elif self.get_tab_pos() in [Gtk.PositionType.TOP,
+                                        Gtk.PositionType.BOTTOM]:
+                if event.delta_x > 0:
+                    self.next_page()
+                elif event.delta_x < 0:
+                    self.prev_page()
+        return True
+
+class TabLabel(Gtk.HBox):
     """Class implementing a label widget for Notebook tabs"""
     notebook = None
     terminator = None
@@ -495,14 +554,13 @@ class TabLabel(gtk.HBox):
     button = None
 
     __gsignals__ = {
-            'close-clicked': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
-                (gobject.TYPE_OBJECT,)),
+            'close-clicked': (GObject.SignalFlags.RUN_LAST, None,
+                (GObject.TYPE_OBJECT,)),
     }
 
     def __init__(self, title, notebook):
         """Class initialiser"""
-        gtk.HBox.__init__(self)
-        self.__gobject_init__()
+        GObject.GObject.__init__(self)
 
         self.notebook = notebook
         self.terminator = Terminator()
@@ -511,7 +569,7 @@ class TabLabel(gtk.HBox):
         self.label = EditableLabel(title)
         self.update_angle()
 
-        self.pack_start(self.label, True, True)
+        self.pack_start(self.label, True, True, 0)
 
         self.update_button()
         self.show_all()
@@ -535,6 +593,9 @@ class TabLabel(gtk.HBox):
         else:
             return(None)
 
+    def edit(self):
+        self.label.edit()
+
     def update_button(self):
         """Update the state of our close button"""
         if not self.config['close_button_on_tab']:
@@ -548,40 +609,39 @@ class TabLabel(gtk.HBox):
             return
 
         if not self.button:
-            self.button = gtk.Button()
+            self.button = Gtk.Button()
         if not self.icon:
-            self.icon = gtk.Image()
-            self.icon.set_from_stock(gtk.STOCK_CLOSE,
-                                     gtk.ICON_SIZE_MENU)
-
+            self.icon = Gio.ThemedIcon.new_with_default_fallbacks("window-close-symbolic")
+            self.icon = Gtk.Image.new_from_gicon(self.icon, Gtk.IconSize.MENU)
+            
         self.button.set_focus_on_click(False)
-        self.button.set_relief(gtk.RELIEF_NONE)
-        style = gtk.RcStyle()
-        style.xthickness = 0
-        style.ythickness = 0
-        self.button.modify_style(style)
+        self.button.set_relief(Gtk.ReliefStyle.NONE)
+#        style = Gtk.RcStyle()  # FIXME FOR GTK3 how to do it there? actually do we really want to override the theme?
+#        style.xthickness = 0
+#        style.ythickness = 0
+#        self.button.modify_style(style)
         self.button.add(self.icon)
         self.button.connect('clicked', self.on_close)
         self.button.set_name('terminator-tab-close-button')
         if hasattr(self.button, 'set_tooltip_text'):
             self.button.set_tooltip_text(_('Close Tab'))
-        self.pack_start(self.button, False, False)
+        self.pack_start(self.button, False, False, 0)
         self.show_all()
 
     def update_angle(self):
         """Update the angle of a label"""
         position = self.notebook.get_tab_pos()
-        if position == gtk.POS_LEFT:
+        if position == Gtk.PositionType.LEFT:
             if hasattr(self, 'set_orientation'):
-                self.set_orientation(gtk.ORIENTATION_VERTICAL)
+                self.set_orientation(Gtk.Orientation.VERTICAL)
             self.label.set_angle(90)
-        elif position == gtk.POS_RIGHT:
+        elif position == Gtk.PositionType.RIGHT:
             if hasattr(self, 'set_orientation'):
-                self.set_orientation(gtk.ORIENTATION_VERTICAL)
+                self.set_orientation(Gtk.Orientation.VERTICAL)
             self.label.set_angle(270)
         else:
             if hasattr(self, 'set_orientation'):
-                self.set_orientation(gtk.ORIENTATION_HORIZONTAL)
+                self.set_orientation(Gtk.Orientation.HORIZONTAL)
             self.label.set_angle(0)
 
     def on_close(self, _widget):

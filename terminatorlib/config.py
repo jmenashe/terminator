@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python2
 #    TerminatorConfig - layered config classes
 #    Copyright (C) 2006-2010  cmsj@tenshu.net
 #
@@ -79,19 +79,17 @@ from configobj.validate import Validator
 from borg import Borg
 from util import dbg, err, DEBUG, get_config_dir, dict_diff
 
-try:
-    import gconf
-except ImportError:
-    dbg('Unable to import gconf, GNOME defaults unavailable')
+from gi.repository import Gio
 
 DEFAULTS = {
         'global_config':   {
-            'dbus'                  : False,
+            'dbus'                  : True,
             'focus'                 : 'click',
             'handle_size'           : -1,
-            'geometry_hinting'      : True,
+            'geometry_hinting'      : False,
             'window_state'          : 'normal',
             'borderless'            : False,
+            'extra_styling'         : True,
             'tab_position'          : 'top',
             'broadcast_default'     : 'group',
             'close_button_on_tab'   : True,
@@ -102,7 +100,6 @@ DEFAULTS = {
             'always_on_top'         : False,
             'hide_on_lose_focus'    : False,
             'sticky'                : False,
-            'try_posix_regexp'      : platform.system() != 'Linux',
             'use_custom_url_handler': False,
             'custom_url_handler'    : '',
             'disable_real_transparency' : False,
@@ -121,6 +118,8 @@ DEFAULTS = {
             'always_split_with_profile': False,
             'title_use_system_font' : True,
             'title_font'            : 'Sans 9',
+            'putty_paste_style'     : False,
+            'smart_copy'            : True,
         },
         'keybindings': {
             'zoom_in'          : '<Control>plus',
@@ -188,7 +187,9 @@ DEFAULTS = {
             'broadcast_all'    : '<Alt>a',
             'insert_number'    : '<Super>1',
             'insert_padded'    : '<Super>0',
-            'edit_window_title': '<Alt>t',
+            'edit_window_title': '<Control><Alt>w',
+            'edit_tab_title'   : '<Control><Alt>a',
+            'edit_terminal_title': '<Control><Alt>x',
             'layout_launcher'  : '<Alt>l',
             'next_profile'     : '',
             'previous_profile' : '', 
@@ -197,7 +198,6 @@ DEFAULTS = {
         'profiles': {
             'default':  {
                 'allow_bold'            : True,
-                'antialias'             : True,
                 'audible_bell'          : False,
                 'visible_bell'          : False,
                 'urgent_bell'           : False,
@@ -205,32 +205,30 @@ DEFAULTS = {
                 'background_color'      : '#000000',
                 'background_darkness'   : 0.5,
                 'background_type'       : 'solid',
-                'background_image'      : None,
                 'backspace_binding'     : 'ascii-del',
                 'delete_binding'        : 'escape-sequence',
                 'color_scheme'          : 'grey_on_black',
                 'cursor_blink'          : True,
                 'cursor_shape'          : 'block',
-                'cursor_color'          : '#aaaaaa',
-                'emulation'             : 'xterm',
-                'term'                  : 'xterm',
-                'colorterm'             : 'gnome-terminal',
+                'cursor_color'          : '',
+                'cursor_color_fg'       : True,
+                'term'                  : 'xterm-256color',
+                'colorterm'             : 'truecolor',
                 'font'                  : 'Mono 10',
                 'foreground_color'      : '#aaaaaa',
                 'show_titlebar'         : True,
                 'scrollbar_position'    : "right",
                 'scroll_background'     : True,
                 'scroll_on_keystroke'   : True,
-                'scroll_on_output'      : True,
+                'scroll_on_output'      : False,
                 'scrollback_lines'      : 500,
                 'scrollback_infinite'   : False,
                 'exit_action'           : 'close',
                 'palette'               : '#2e3436:#cc0000:#4e9a06:#c4a000:\
 #3465a4:#75507b:#06989a:#d3d7cf:#555753:#ef2929:#8ae234:#fce94f:\
 #729fcf:#ad7fa8:#34e2e2:#eeeeec',
-                'word_chars'            : '-A-Za-z0-9,./?%&#:_',
+                'word_chars'            : '-,./?%&#:_',
                 'mouse_autohide'        : True,
-                'update_records'        : True,
                 'login_shell'           : False,
                 'use_custom_command'    : False,
                 'custom_command'        : '',
@@ -242,7 +240,7 @@ DEFAULTS = {
                 'force_no_bell'         : False,
                 'cycle_term_tab'        : True,
                 'copy_on_selection'     : False,
-                'alternate_screen_scroll': True,
+                'rewrap_on_resize'      : True,
                 'split_to_group'        : False,
                 'autoclean_groups'      : True,
                 'http_proxy'            : '',
@@ -269,7 +267,6 @@ class Config(object):
     """Class to provide a slightly richer config API above ConfigBase"""
     base = None
     profile = None
-    gconf = None
     system_mono_font = None
     system_prop_font = None
     system_focus = None
@@ -279,6 +276,7 @@ class Config(object):
         self.base = ConfigBase()
         self.set_profile(profile)
         self.inhibited = False
+        self.connect_gsetting_callbacks()
 
     def __getitem__(self, key, default=None):
         """Look up a configuration item"""
@@ -357,70 +355,69 @@ class Config(object):
         """List all configured layouts"""
         return(self.base.layouts.keys())
 
+    def connect_gsetting_callbacks(self):
+        """Get system settings and create callbacks for changes"""
+        dbg("GSetting connects for system changes")
+        # Have to preserve these to self, or callbacks don't happen
+        self.gsettings_interface=Gio.Settings.new('org.gnome.desktop.interface')
+        self.gsettings_interface.connect("changed::font-name", self.on_gsettings_change_event)
+        self.gsettings_interface.connect("changed::monospace-font-name", self.on_gsettings_change_event)
+        self.gsettings_wm=Gio.Settings.new('org.gnome.desktop.wm.preferences')
+        self.gsettings_wm.connect("changed::focus-mode", self.on_gsettings_change_event)
+
     def get_system_prop_font(self):
         """Look up the system font"""
         if self.system_prop_font is not None:
             return(self.system_prop_font)
-        elif 'gconf' not in globals():
+        elif 'org.gnome.desktop.interface' not in Gio.Settings.list_schemas():
             return
         else:
-            if self.gconf is None:
-                self.gconf = gconf.client_get_default()
-
-            value = self.gconf.get(
-                        '/desktop/gnome/interface/font_name')
+            gsettings=Gio.Settings.new('org.gnome.desktop.interface')
+            value = gsettings.get_value('font-name')
             if value:
                 self.system_prop_font = value.get_string()
             else:
                 self.system_prop_font = "Sans 10"
-            self.gconf.notify_add(
-                        '/desktop/gnome/interface/font_name', 
-                        self.on_gconf_notify)
             return(self.system_prop_font)
 
     def get_system_mono_font(self):
         """Look up the system font"""
         if self.system_mono_font is not None:
             return(self.system_mono_font)
-        elif 'gconf' not in globals():
+        elif 'org.gnome.desktop.interface' not in Gio.Settings.list_schemas():
             return
         else:
-            if self.gconf is None:
-                self.gconf = gconf.client_get_default()
-
-            value = self.gconf.get(
-                        '/desktop/gnome/interface/monospace_font_name')
+            gsettings=Gio.Settings.new('org.gnome.desktop.interface')
+            value = gsettings.get_value('monospace-font-name')
             if value:
                 self.system_mono_font = value.get_string()
             else:
                 self.system_mono_font = "Mono 10"
-            self.gconf.notify_add(
-                        '/desktop/gnome/interface/monospace_font_name', 
-                        self.on_gconf_notify)
             return(self.system_mono_font)
 
     def get_system_focus(self):
         """Look up the system focus setting"""
         if self.system_focus is not None:
             return(self.system_focus)
-        elif 'gconf' not in globals():
+        elif 'org.gnome.desktop.interface' not in Gio.Settings.list_schemas():
             return
         else:
-            if self.gconf is None:
-                self.gconf = gconf.client_get_default()
-
-            value = self.gconf.get('/apps/metacity/general/focus_mode')
+            gsettings=Gio.Settings.new('org.gnome.desktop.wm.preferences')
+            value = gsettings.get_value('focus-mode')
             if value:
                 self.system_focus = value.get_string()
-                self.gconf.notify_add('/apps/metacity/general/focus_mode',
-                        self.on_gconf_notify)
             return(self.system_focus)
 
-    def on_gconf_notify(self, _client, _cnxn_id, _entry, _what):
-        """Handle a gconf watch changing"""
-        dbg('GConf notification received. Invalidating caches')
+    def on_gsettings_change_event(self, settings, key):
+        """Handle a gsetting change event"""
+        dbg('GSetting change event received. Invalidating caches')
         self.system_focus = None
         self.system_font = None
+        self.system_mono_font = None
+        # Need to trigger a reconfigure to change active terminals immediately
+        if "Terminator" not in globals():
+            from terminator import Terminator
+        Terminator().reconfigure()
 
     def save(self):
         """Cause ConfigBase to save our config to file"""
@@ -564,8 +561,6 @@ class ConfigBase(Borg):
                 keytype = keymap[keytype]
             elif keytype == 'list':
                 value = 'list(%s)' % ','.join(value)
-            if key == 'background_image':
-                keytype = 'string'
             if keytype == 'string':
                 value = '"%s"' % value
 
@@ -661,6 +656,16 @@ class ConfigBase(Borg):
                        parser[section_name][layout] == {}:
                            continue
                     section[layout] = parser[section_name][layout]
+            elif section_name == 'keybindings':
+                if not parser.has_key(section_name):
+                    continue
+                for part in parser[section_name]:
+                    dbg('ConfigBase::load: Processing %s: %s' % (section_name,
+                                                                 part))
+                    if parser[section_name][part] == 'None':
+                        section[part] = None
+                    else:
+                        section[part] = parser[section_name][part]
             else:
                 try:
                     section.update(parser[section_name])

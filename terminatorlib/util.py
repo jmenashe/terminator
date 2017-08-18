@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python2
 #    Terminator.util - misc utility functions
 #    Copyright (C) 2006-2010  cmsj@tenshu.net
 #
@@ -17,12 +17,20 @@
 """Terminator.util - misc utility functions"""
 
 import sys
-import gtk
+import cairo
 import os
 import pwd
 import inspect
 import uuid
 import subprocess
+import gi
+
+try:
+    gi.require_version('Gtk','3.0')
+    from gi.repository import Gtk, Gdk
+except ImportError:
+    print('You need Gtk 3.0+ to run Remotinator.')
+    sys.exit(1)
 
 # set this to true to enable debugging output
 DEBUG = False
@@ -71,8 +79,8 @@ def gerr(message = None):
     """Display a graphical error. This should only be used for serious
     errors as it will halt execution"""
 
-    dialog = gtk.MessageDialog(None, gtk.DIALOG_MODAL,
-            gtk.MESSAGE_ERROR, gtk.BUTTONS_OK, message)
+    dialog = Gtk.MessageDialog(None, Gtk.DialogFlags.MODAL,
+            Gtk.MessageType.ERROR, Gtk.ButtonsType.OK, message)
     dialog.run()
     dialog.destroy()
 
@@ -86,23 +94,17 @@ def has_ancestor(widget, wtype):
 
 def manual_lookup():
     '''Choose the manual to open based on LANGUAGE'''
-    prefix = os.path.join(os.sep, 'usr', 'share', 'doc', 'terminator')
+    available_languages = ['en']
+    base_url = 'http://terminator-gtk3.readthedocs.io/%s/latest/'
+    target = 'en'   # default to English
     if 'LANGUAGE' in os.environ:
         languages = os.environ['LANGUAGE'].split(':')
         for language in languages:
-            full_path = os.path.join(prefix, 'html_%s' % (language), 'index.html')
-            if os.path.isfile(full_path):
-                dbg('Found %s manual' % (language))
-                return full_path
-            dbg('Couldn\'t find manual for %s language' % (language))
+            if language in available_languages:
+                target = language
+                break
 
-    full_path = os.path.join(prefix, 'html', 'index.html')
-    if os.path.isfile(full_path):
-        dbg('Falling back to the default manual')
-        return full_path
-    else:
-        dbg('I can\'t find any suitable manual')
-        return None
+    return base_url % target
 
 def path_lookup(command):
     '''Find a command in our path'''
@@ -155,14 +157,9 @@ def shell_lookup():
 
 def widget_pixbuf(widget, maxsize=None):
     """Generate a pixbuf of a widget"""
-    if gtk.gtk_version < (2, 14):
-        return(None)
-
-    pixmap = widget.get_snapshot()
-    (width, height) = pixmap.get_size()
-    pixbuf = gtk.gdk.Pixbuf(gtk.gdk.COLORSPACE_RGB, False, 8, width, height)
-    pixbuf.get_from_drawable(pixmap, pixmap.get_colormap(), 0, 0, 0, 0, width,
-            height)
+    # FIXME: Can this be changed from using "import cairo" to "from gi.repository import cairo"?
+    window = widget.get_window()
+    width, height = window.get_width(), window.get_height()
 
     longest = max(width, height)
 
@@ -172,8 +169,18 @@ def widget_pixbuf(widget, maxsize=None):
     if not maxsize or (width * factor) > width or (height * factor) > height:
         factor = 1
 
-    scaledpixbuf = pixbuf.scale_simple(int(width * factor), int(height * factor), gtk.gdk.INTERP_BILINEAR)
+    preview_width, preview_height = int(width * factor), int(height * factor)
 
+    preview_surface = Gdk.Window.create_similar_surface(window,
+        cairo.CONTENT_COLOR, preview_width, preview_height)
+
+    cairo_context = cairo.Context(preview_surface)
+    cairo_context.scale(factor, factor)
+    Gdk.cairo_set_source_window(cairo_context, window, 0, 0)
+    cairo_context.paint()
+
+    scaledpixbuf = Gdk.pixbuf_get_from_surface(preview_surface, 0, 0, preview_width, preview_height);
+    
     return(scaledpixbuf)
 
 def get_config_dir():
@@ -331,3 +338,10 @@ def spawn_new_terminator(cwd, args):
       
     dbg("Spawning: %s" % cmd)
     subprocess.Popen([cmd]+args)
+
+def display_manager():
+    """Try to detect which display manager we run under"""
+    if os.environ.get('WAYLAND_DISPLAY'):
+        return 'WAYLAND'
+    # Fallback assumption of X11
+    return 'X11'
