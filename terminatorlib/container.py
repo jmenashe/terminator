@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/python
 # Terminator by Chris Jones <cmsj@tenshu.net>
 # GPL v2 only
 """container.py - classes necessary to contain Terminal widgets"""
@@ -127,7 +127,6 @@ class Container(object):
             return(False)
 
         self.terminator.deregister_terminal(widget)
-        widget.close()
         self.terminator.group_hoover()
         return(True)
 
@@ -172,15 +171,8 @@ class Container(object):
         primary = Gtk.Label(label=_('<big><b>Close multiple terminals?</b></big>'))
         primary.set_use_markup(True)
         primary.set_alignment(0, 0.5)
-        if reqtype == 'window':
-            label_text = _('This window has several terminals open. Closing \
-the window will also close all terminals within it.')
-        elif reqtype == 'tab':
-            label_text = _('This tab has several terminals open. Closing \
-the tab will also close all terminals within it.')
-        else:
-            label_text = ''
-        secondary = Gtk.Label(label=label_text)
+        secondary = Gtk.Label(label=_('This %s has several terminals open. Closing \
+the %s will also close all terminals within it.') % (reqtype, reqtype))
         secondary.set_line_wrap(True)
                     
         labels = Gtk.VBox()

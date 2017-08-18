@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/python
 
 # Plugin by Sinan Nalkaya <sardok@gmail.com>
 # See LICENSE of Terminator package.
@@ -44,7 +44,6 @@ class Logger(plugin.MenuItem):
         """ Final function to write a file """
         content = terminal.get_text_range(row_start, col_start, row_end, col_end,
                                           lambda *a: True)
-        content = content[0]
         fd = self.loggers[terminal]["fd"]
         # Don't write the last char which is always '\n'
         fd.write(content[:-1])
@@ -67,7 +66,6 @@ class Logger(plugin.MenuItem):
         savedialog = Gtk.FileChooserDialog(title=_("Save Log File As"),
                                            action=self.dialog_action,
                                            buttons=self.dialog_buttons)
-        savedialog.set_transient_for(_widget.get_toplevel())
         savedialog.set_do_overwrite_confirmation(True)
         savedialog.set_local_only(True)
         savedialog.show_all()
@@ -92,7 +90,6 @@ class Logger(plugin.MenuItem):
                 e = sys.exc_info()[1]
                 error = Gtk.MessageDialog(None, Gtk.DialogFlags.MODAL, Gtk.MessageType.ERROR,
                                           Gtk.ButtonsType.OK, e.strerror)
-                error.set_transient_for(savedialog)
                 error.run()
                 error.destroy()
         savedialog.destroy()

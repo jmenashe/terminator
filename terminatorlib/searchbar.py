@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/python
 # Terminator by Chris Jones <cmsj@tenshu.net>
 # GPL v2 only
 """searchbar.py - classes necessary to provide a terminal search bar"""
@@ -38,8 +38,6 @@ class Searchbar(Gtk.HBox):
         GObject.GObject.__init__(self)
 
         self.config = Config()
-
-        self.get_style_context().add_class("terminator-terminal-searchbar")
 
         # Search text
         self.entry = Gtk.Entry()
@@ -212,7 +210,7 @@ class Searchbar(Gtk.HBox):
     def get_vte_buffer_range(self):
         """Get the range of a vte widget"""
         column, endrow = self.vte.get_cursor_position()
-        if self.config['scrollback_infinite']:
+        if self.config['scrollback_lines'] < 0:
             startrow = 0
         else:
             startrow = max(0, endrow - self.config['scrollback_lines'])

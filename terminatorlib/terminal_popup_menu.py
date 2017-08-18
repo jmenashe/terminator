@@ -1,10 +1,8 @@
-#!/usr/bin/env python2
+#!/usr/bin/python
 # Terminator by Chris Jones <cmsj@tenshu.net>
 # GPL v2 only
 """terminal_popup_menu.py - classes necessary to provide a terminal context 
 menu"""
-
-import string
 
 from gi.repository import Gtk
 
@@ -99,7 +97,7 @@ class TerminalPopupMenu(object):
                          lambda x: terminal.clipboard.set_text(terminal.prepare_url(url), len(terminal.prepare_url(url))))
             menu.append(item)
 
-            menu.append(Gtk.SeparatorMenuItem())
+            menu.append(Gtk.MenuItem())
 
         item = Gtk.ImageMenuItem.new_with_mnemonic(_('_Copy'))
         item.connect('activate', lambda x: terminal.vte.copy_clipboard())
@@ -110,7 +108,7 @@ class TerminalPopupMenu(object):
         item.connect('activate', lambda x: terminal.paste_clipboard())
         menu.append(item)
 
-        menu.append(Gtk.SeparatorMenuItem())
+        menu.append(Gtk.MenuItem())
 
         if not terminal.is_zoomed():
             item = Gtk.ImageMenuItem.new_with_mnemonic(_('Split H_orizontally'))
@@ -144,13 +142,13 @@ class TerminalPopupMenu(object):
                         terminal.emit('tab-new', True, terminal))
                 menu.append(item)
 
-            menu.append(Gtk.SeparatorMenuItem())
+            menu.append(Gtk.MenuItem())
 
         item = Gtk.ImageMenuItem.new_with_mnemonic(_('_Close'))
         item.connect('activate', lambda x: terminal.close())
         menu.append(item)
 
-        menu.append(Gtk.SeparatorMenuItem())
+        menu.append(Gtk.MenuItem())
 
         if not terminal.is_zoomed():
             sensitive = not terminal.get_toplevel() == terminal.get_parent()
@@ -165,13 +163,13 @@ class TerminalPopupMenu(object):
             item.set_sensitive(sensitive)
             menu.append(item)
 
-            menu.append(Gtk.SeparatorMenuItem())
+            menu.append(Gtk.MenuItem())
         else:
             item = Gtk.MenuItem.new_with_mnemonic(_('_Restore all terminals'))
             item.connect('activate', terminal.unzoom)
             menu.append(item)
 
-            menu.append(Gtk.SeparatorMenuItem())
+            menu.append(Gtk.MenuItem())
 
         if self.config['show_titlebar'] == False:
             item = Gtk.MenuItem.new_with_mnemonic(_('Grouping'))
@@ -179,7 +177,7 @@ class TerminalPopupMenu(object):
             submenu.show_all()
             item.set_submenu(submenu)
             menu.append(item)
-            menu.append(Gtk.SeparatorMenuItem())
+            menu.append(Gtk.MenuItem())
 
         item = Gtk.CheckMenuItem.new_with_mnemonic(_('Show _scrollbar'))
         item.set_active(terminal.scrollbar.get_property('visible'))
@@ -191,7 +189,7 @@ class TerminalPopupMenu(object):
             item.connect('activate', lambda x: PrefsEditor(self.terminal))
             menu.append(item)
 
-        profilelist = sorted(self.config.list_profiles(), key=string.lower)
+        profilelist = self.config.list_profiles()
 
         if len(profilelist) > 1:
             item = Gtk.MenuItem.new_with_mnemonic(_('Profiles'))
@@ -204,10 +202,7 @@ class TerminalPopupMenu(object):
             group = None
 
             for profile in profilelist:
-                profile_label = profile
-                if profile_label == 'default':
-                    profile_label = profile.capitalize()
-                item = Gtk.RadioMenuItem(profile_label, group)
+                item = Gtk.RadioMenuItem(profile.capitalize(), group)
                 if profile == current:
                     item.set_active(True)
                 item.connect('activate', terminal.force_set_profile, profile)
@@ -224,7 +219,7 @@ class TerminalPopupMenu(object):
                 menuplugin.callback(menuitems, menu, terminal)
             
             if len(menuitems) > 0:
-                menu.append(Gtk.SeparatorMenuItem())
+                menu.append(Gtk.MenuItem())
 
             for menuitem in menuitems:
                 menu.append(menuitem)

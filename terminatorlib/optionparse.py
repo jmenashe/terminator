@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/python
 #    Terminator.optionparse - Parse commandline options
 #    Copyright (C) 2006-2010  cmsj@tenshu.net
 #
@@ -134,8 +134,7 @@ icon for the window (by file or name)'))
 
     if options.working_directory:
         if os.path.exists(os.path.expanduser(options.working_directory)):
-            options.working_directory = os.path.expanduser(options.working_directory)
-            os.chdir(options.working_directory)
+            os.chdir(os.path.expanduser(options.working_directory))
         else:
             err('OptionParse::parse_options: %s does not exist' %
                     options.working_directory)

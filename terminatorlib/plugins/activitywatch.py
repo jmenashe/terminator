@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/python
 # Terminator by Chris Jones <cmsj@tenshu.net>
 # GPL v2 only
 """activitywatch.py - Terminator Plugin to watch a terminal for activity"""
@@ -21,8 +21,8 @@ try:
     # This is inside this try so we only make the plugin available if pynotify
     #  is present on this computer.
     AVAILABLE = ['ActivityWatch', 'InactivityWatch']
-except (ImportError, ValueError):
-    err('ActivityWatch plugin unavailable as we cannot import Notify')
+except ImportError:
+    err(_('ActivityWatch plugin unavailable: please install python-notify'))
 
 config = Config()
 inactive_period = float(config.plugin_get('InactivityWatch', 'inactive_period',

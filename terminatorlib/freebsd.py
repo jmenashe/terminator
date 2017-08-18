@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/python
 #
 # Copyright (c) 2008, Thomas Hurst <tom@hur.st>
 #
@@ -13,7 +13,6 @@
 """
 
 from ctypes import *
-from ctypes.util import find_library
 
 class sockaddr_storage(Structure):
   """struct sockaddr_storage, defined in /usr/include/sys/socket.h"""
@@ -44,7 +43,7 @@ class kinfo_file(Structure):
       ('kf_sa_peer',       sockaddr_storage),
   ]
 
-libc = CDLL(find_library('c'))
+libc = CDLL('libc.so')
 
 uintlen = c_size_t(sizeof(c_uint))
 ver = c_uint(0)

@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/python
 # Terminator by Chris Jones <cmsj@tenshu.net>
 # GPL v2 only
 """terminal.py - classes necessary to provide Terminal widgets"""
@@ -89,7 +89,6 @@ class Terminal(Gtk.VBox):
     pid = None
 
     matches = None
-    regex_flags = None
     config = None
     default_encoding = None
     custom_encoding = None
@@ -143,8 +142,6 @@ class Terminal(Gtk.VBox):
         self.vte.show()
 
         self.default_encoding = self.vte.get_encoding()
-        self.regex_flags = (GLib.RegexCompileFlags.OPTIMIZE | \
-                            GLib.RegexCompileFlags.MULTILINE)
         self.update_url_matches()
 
         self.terminalbox = self.create_terminalbox()
@@ -227,7 +224,7 @@ class Terminal(Gtk.VBox):
     def close(self):
         """Close ourselves"""
         dbg('close: called')
-        self.cnxids.remove_widget(self.vte)
+        self.cnxids.remove_signal(self.vte, 'child-exited')
         self.emit('close-term')
         try:
             dbg('close: killing %d' % self.pid)
@@ -238,16 +235,11 @@ class Terminal(Gtk.VBox):
             dbg('os.kill failed: %s' % ex)
             pass
 
-        if self.vte:
-            self.terminalbox.remove(self.vte)
-            del(self.vte)
-
     def create_terminalbox(self):
         """Create a GtkHBox containing the terminal and a scrollbar"""
 
         terminalbox = Gtk.HBox()
         self.scrollbar = Gtk.VScrollbar(self.vte.get_vadjustment())
-        self.scrollbar.set_no_show_all(True)
 
         terminalbox.pack_start(self.vte, True, True, 0)
         terminalbox.pack_start(self.scrollbar, False, True, 0)
@@ -259,7 +251,7 @@ class Terminal(Gtk.VBox):
         """Update the regexps used to match URLs"""
         userchars = "-A-Za-z0-9"
         passchars = "-A-Za-z0-9,?;.:/!%$^*&~\"#'"
-        hostchars = "-A-Za-z0-9:\[\]"
+        hostchars = "-A-Za-z0-9"
         pathchars = "-A-Za-z0-9_$.+!*(),;:@&=?/~#%'"
         schemes   = "(news:|telnet:|nntp:|file:/|https?:|ftps?:|webcal:)"
         user      = "[" + userchars + "]+(:[" + passchars + "]+)?"
@@ -271,7 +263,7 @@ class Terminal(Gtk.VBox):
         re = (lboundry + schemes +
                 "//(" + user + "@)?[" + hostchars  +".]+(:[0-9]+)?(" + 
                 urlpath + ")?" + rboundry + "/?")
-        reg = GLib.Regex.new(re, self.regex_flags, 0)
+        reg = GLib.Regex.new(re, GLib.RegexCompileFlags.OPTIMIZE, 0)
         self.matches['full_uri'] = self.vte.match_add_gregex(reg, 0)
 
         if self.matches['full_uri'] == -1:
@@ -281,23 +273,23 @@ class Terminal(Gtk.VBox):
                     '(callto:|h323:|sip:)' + "[" + userchars + "+][" + 
                     userchars + ".]*(:[0-9]+)?@?[" + pathchars + "]+" + 
                     rboundry)
-            reg = GLib.Regex.new(re, self.regex_flags, 0)
+            reg = GLib.Regex.new(re, GLib.RegexCompileFlags.OPTIMIZE, 0)
             self.matches['voip'] = self.vte.match_add_gregex(reg, 0)
             re = (lboundry +
                     "(www|ftp)[" + hostchars + "]*\.[" + hostchars + 
                     ".]+(:[0-9]+)?(" + urlpath + ")?" + rboundry + "/?")
-            reg = GLib.Regex.new(re, self.regex_flags, 0)
+            reg = GLib.Regex.new(re, GLib.RegexCompileFlags.OPTIMIZE, 0)
             self.matches['addr_only'] = self.vte.match_add_gregex(reg, 0)
             re = (lboundry +
                     "(mailto:)?[a-zA-Z0-9][a-zA-Z0-9.+-]*@[a-zA-Z0-9]" +
                             "[a-zA-Z0-9-]*\.[a-zA-Z0-9][a-zA-Z0-9-]+" +
                             "[.a-zA-Z0-9-]*" + rboundry)
-            reg = GLib.Regex.new(re, self.regex_flags, 0)
+            reg = GLib.Regex.new(re, GLib.RegexCompileFlags.OPTIMIZE, 0)
             self.matches['email'] = self.vte.match_add_gregex(reg, 0)
             re = (lboundry +
                   """news:[-A-Z\^_a-z{|}~!"#$%&'()*+,./0-9;:=?`]+@""" +
                             "[-A-Za-z0-9.]+(:[0-9]+)?" + rboundry)
-            reg = GLib.Regex.new(re, self.regex_flags, 0)
+            reg = GLib.Regex.new(re, GLib.RegexCompileFlags.OPTIMIZE, 0)
             self.matches['nntp'] = self.vte.match_add_gregex(reg, 0)
 
             # Now add any matches from plugins
@@ -312,7 +304,7 @@ class Terminal(Gtk.VBox):
                     if name in self.matches:
                         dbg('refusing to add duplicate match %s' % name)
                         continue
-                    reg = GLib.Regex.new(match, self.regex_flags, 0)
+                    reg = GLib.Regex.new(match, GLib.RegexCompileFlags.OPTIMIZE, 0)
                     self.matches[name] = self.vte.match_add_gregex(reg, 0)
                     dbg('added plugin URL handler for %s (%s) as %d' % 
                         (name, urlplugin.__class__.__name__,
@@ -325,7 +317,7 @@ class Terminal(Gtk.VBox):
         if name in self.matches:
             err('Terminal::match_add: Refusing to create duplicate match %s' % name)
             return
-        reg = GLib.Regex.new(match, self.regex_flags, 0)
+        reg = GLib.Regex.new(match, GLib.RegexCompileFlags.OPTIMIZE, 0)
         self.matches[name] = self.vte.match_add_gregex(reg, 0)
 
     def match_remove(self, name):
@@ -337,7 +329,7 @@ class Terminal(Gtk.VBox):
         del(self.matches[name])
 
     def maybe_copy_clipboard(self):
-        if self.config['copy_on_selection'] and self.vte.get_has_selection():
+        if self.config['copy_on_selection']:
             self.vte.copy_clipboard()
 
     def connect_signals(self):
@@ -345,10 +337,10 @@ class Terminal(Gtk.VBox):
 
         self.scrollbar.connect('button-press-event', self.on_buttonpress)
 
-        self.cnxids.new(self.vte, 'key-press-event', self.on_keypress)
-        self.cnxids.new(self.vte, 'button-press-event', self.on_buttonpress)
-        self.cnxids.new(self.vte, 'scroll-event', self.on_mousewheel)
-        self.cnxids.new(self.vte, 'popup-menu', self.popup_menu)
+        self.vte.connect('key-press-event', self.on_keypress)
+        self.vte.connect('button-press-event', self.on_buttonpress)
+        self.vte.connect('scroll-event', self.on_mousewheel)
+        self.vte.connect('popup-menu', self.popup_menu)
 
         srcvtetargets = [("vte", Gtk.TargetFlags.SAME_APP, self.TARGET_TYPE_VTE)]
         dsttargets = [("vte", Gtk.TargetFlags.SAME_APP, self.TARGET_TYPE_VTE), 
@@ -390,29 +382,29 @@ class Terminal(Gtk.VBox):
                 dsttargets, Gdk.DragAction.COPY | Gdk.DragAction.MOVE)
 
         for widget in [self.vte, self.titlebar]:
-            self.cnxids.new(widget, 'drag-begin', self.on_drag_begin, self)
-            self.cnxids.new(widget, 'drag-data-get', self.on_drag_data_get,
+            widget.connect('drag-begin', self.on_drag_begin, self)
+            widget.connect('drag-data-get', self.on_drag_data_get,
             self)
 
-        self.cnxids.new(self.vte, 'drag-motion', self.on_drag_motion, self)
-        self.cnxids.new(self.vte, 'drag-data-received',
+        self.vte.connect('drag-motion', self.on_drag_motion, self)
+        self.vte.connect('drag-data-received',
             self.on_drag_data_received, self)
 
         self.cnxids.new(self.vte, 'selection-changed', 
             lambda widget: self.maybe_copy_clipboard())
 
         if self.composite_support:
-            self.cnxids.new(self.vte, 'composited-changed', self.reconfigure)
+            self.vte.connect('composited-changed', self.reconfigure)
 
-        self.cnxids.new(self.vte, 'window-title-changed', lambda x:
+        self.vte.connect('window-title-changed', lambda x:
             self.emit('title-change', self.get_window_title()))
-        self.cnxids.new(self.vte, 'grab-focus', self.on_vte_focus)
-        self.cnxids.new(self.vte, 'focus-in-event', self.on_vte_focus_in)
-        self.cnxids.new(self.vte, 'focus-out-event', self.on_vte_focus_out)
-        self.cnxids.new(self.vte, 'size-allocate', self.deferred_on_vte_size_allocate)
+        self.vte.connect('grab-focus', self.on_vte_focus)
+        self.vte.connect('focus-in-event', self.on_vte_focus_in)
+        self.vte.connect('focus-out-event', self.on_vte_focus_out)
+        self.vte.connect('size-allocate', self.deferred_on_vte_size_allocate)
 
         self.vte.add_events(Gdk.EventMask.ENTER_NOTIFY_MASK)
-        self.cnxids.new(self.vte, 'enter_notify_event',
+        self.vte.connect('enter_notify_event',
             self.on_vte_notify_enter)
 
         self.cnxids.new(self.vte, 'realize', self.reconfigure)
@@ -460,7 +452,7 @@ class Terminal(Gtk.VBox):
                 cnx[0].connect(cnx[1], cnx[2], cnx[3])
 
         if self.group != None or len(self.terminator.groups) > 0:
-            menu.append(Gtk.SeparatorMenuItem())
+            menu.append(Gtk.MenuItem())
 
         if self.group != None:
             item = Gtk.MenuItem(_('Remove group %s') % self.group)
@@ -483,14 +475,14 @@ class Terminal(Gtk.VBox):
             menu.append(item)
 
         if self.group != None:
-            menu.append(Gtk.SeparatorMenuItem())
+            menu.append(Gtk.MenuItem())
 
             item = Gtk.MenuItem(_('Close group %s') % self.group)
             item.connect('activate', lambda x:
                          self.terminator.closegroupedterms(self.group))
             menu.append(item)
 
-        menu.append(Gtk.SeparatorMenuItem())
+        menu.append(Gtk.MenuItem())
 
         groupitems = []
         cnxs = []
@@ -511,7 +503,7 @@ class Terminal(Gtk.VBox):
         for cnx in cnxs:
             cnx[0].connect(cnx[1], cnx[2], cnx[3])
 
-        menu.append(Gtk.SeparatorMenuItem())
+        menu.append(Gtk.MenuItem())
 
         item = Gtk.CheckMenuItem.new_with_mnemonic(_('_Split to this group'))
         item.set_active(self.config['split_to_group'])
@@ -523,7 +515,7 @@ class Terminal(Gtk.VBox):
         item.connect('toggled', lambda x: self.do_autocleangroups_toggle())
         menu.append(item)
 
-        menu.append(Gtk.SeparatorMenuItem())
+        menu.append(Gtk.MenuItem())
 
         item = Gtk.MenuItem.new_with_mnemonic(_('_Insert terminal number'))
         item.connect('activate', lambda x: self.emit('enumerate', False))
@@ -741,16 +733,6 @@ class Terminal(Gtk.VBox):
         else:
             self.vte.set_colors(self.fgcolor_inactive, self.bgcolor,
                                 self.palette_inactive)
-        profiles = self.config.base.profiles
-        terminal_box_style_context = self.terminalbox.get_style_context()
-        for profile in profiles.keys():
-            munged_profile = "terminator-profile-%s" % (
-                "".join([c if c.isalnum() else "-" for c in profile]))
-            if terminal_box_style_context.has_class(munged_profile):
-                terminal_box_style_context.remove_class(munged_profile)
-        munged_profile = "".join([c if c.isalnum() else "-" for c in self.get_profile()])
-        css_class_name = "terminator-profile-%s" % (munged_profile)
-        terminal_box_style_context.add_class(css_class_name)
         self.set_cursor_color()
         self.vte.set_cursor_shape(getattr(Vte.CursorShape,
                                           self.config['cursor_shape'].upper()));
@@ -923,16 +905,8 @@ class Terminal(Gtk.VBox):
                     self.open_url(url, prepare=True)
         elif event.button == self.MOUSEBUTTON_MIDDLE:
             # middleclick should paste the clipboard
-            # try to pass it to vte widget first though
-            if event.get_state() & Gdk.ModifierType.CONTROL_MASK == 0:
-                if event.get_state() & Gdk.ModifierType.SHIFT_MASK == 0:
-                    if not Vte.Terminal.do_button_press_event(self.vte, event):
-                        middle_click[0](*middle_click[1])
-                else:
-                    middle_click[0](*middle_click[1])
-                return(True)
-            return Vte.Terminal.do_button_press_event(self.vte, event)
-            #return(True)
+            middle_click[0](*middle_click[1])
+            return(True)
         elif event.button == self.MOUSEBUTTON_RIGHT:
             # rightclick should display a context menu if Ctrl is not pressed,
             # plus either the app is not interested in mouse events or Shift is pressed
@@ -1182,7 +1156,7 @@ class Terminal(Gtk.VBox):
     def ensure_visible_and_focussed(self):
         """Make sure that we're visible and focussed"""
         window = self.get_toplevel()
-        topchild = window.get_children()[0]
+        topchild = window.get_child()
         maker = Factory()
 
         if maker.isinstance(topchild, 'Notebook'):

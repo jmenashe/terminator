@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/python
 # Terminator by Chris Jones <cmsj@tenshu.net>
 # GPL v2 only
 """paned.py - a base Paned container class and the vertical/horizontal
@@ -51,12 +51,10 @@ class Paned(Container):
         if not sibling:
             sibling = self.maker.make('terminal')
             sibling.set_cwd(cwd)
-            if self.config['always_split_with_profile']:
-                sibling.force_set_profile(None, widget.get_profile())
             sibling.spawn_child()
             if widget.group and self.config['split_to_group']:
                 sibling.set_group(None, widget.group)
-        elif self.config['always_split_with_profile']:
+        if self.config['always_split_with_profile']:
             sibling.force_set_profile(None, widget.get_profile())
 
         self.add(container)
@@ -474,23 +472,19 @@ class Paned(Container):
             self.set_position(self.get_position())
     
     def position_by_ratio(self, total_size, handle_size, ratio):
-        non_separator_size = max(total_size - handle_size, 0)
+        non_separator_size = max(total_size, handle_size, 0)
         ratio = min(max(ratio, 0.0), 1.0)
         return int(round(non_separator_size * ratio))
 
     def ratio_by_position(self, total_size, handle_size, position):
-        non_separator_size = max(total_size - handle_size, 0)
+        non_separator_size = max(total_size, handle_size, 0)
         if non_separator_size == 0:
             return None
         position = min(max(position, 0), non_separator_size)
         return float(position) / float(non_separator_size)
 
     def set_position_by_ratio(self):
-        # Fix for strange race condition where every so often get_length returns 1. (LP:1655027)
-        while self.terminator.doing_layout and self.get_length() == 1:
-            while Gtk.events_pending():
-                Gtk.main_iteration()
-
+        handle_size = handle_size = self.get_handlesize()
         self.set_pos(self.position_by_ratio(self.get_length(), self.get_handlesize(), self.ratio))
 
     def set_position(self, pos):
@@ -508,13 +502,13 @@ class HPaned(Paned, Gtk.HPaned):
         self.register_signals(HPaned)
         self.cnxids.new(self, 'button-press-event', self.on_button_press)
         self.cnxids.new(self, 'button-release-event', self.on_button_release)
+        self.set_property('position-set',  True)
 
     def get_length(self):
         return(self.get_allocated_width())
 
     def set_pos(self, pos):
         Gtk.HPaned.set_position(self, pos)
-        self.set_property('position-set',  True)
 
 class VPaned(Paned, Gtk.VPaned):
     """Merge Gtk.VPaned into our base Paned Container"""
@@ -525,13 +519,13 @@ class VPaned(Paned, Gtk.VPaned):
         self.register_signals(VPaned)
         self.cnxids.new(self, 'button-press-event', self.on_button_press)
         self.cnxids.new(self, 'button-release-event', self.on_button_release)
+        self.set_property('position-set',  True)
 
     def get_length(self):
         return(self.get_allocated_height())
 
     def set_pos(self, pos):
         Gtk.VPaned.set_position(self, pos)
-        self.set_property('position-set',  True)
 
 GObject.type_register(HPaned)
 GObject.type_register(VPaned)

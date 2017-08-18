@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/python
 #
 # Copyright (c) 2008, Thomas Hurst <tom@hur.st>
 #

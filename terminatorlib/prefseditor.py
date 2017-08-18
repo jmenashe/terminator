@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/python
 """Preferences Editor for Terminator. 
 
 Load a UIBuilder config file, display it,
@@ -46,9 +46,7 @@ class PrefsEditor:
                          'ambience': 6,
                          'solarized_light': 7,
                          'solarized_dark': 8,
-                         'gruvbox_light': 9,
-                         'gruvbox_dark': 10,
-                         'custom': 11}
+                         'custom': 9}
     colourschemes = {'grey_on_black': ['#aaaaaa', '#000000'],
                      'black_on_yellow': ['#000000', '#ffffdd'],
                      'black_on_white': ['#000000', '#ffffff'],
@@ -57,18 +55,14 @@ class PrefsEditor:
                      'orange_on_black': ['#e53c00', '#000000'],
                      'ambience': ['#ffffff', '#300a24'],
                      'solarized_light': ['#657b83', '#fdf6e3'],
-                     'solarized_dark': ['#839496', '#002b36'],
-                     'gruvbox_light': ['#3c3836', '#fbf1c7'],
-                     'gruvbox_dark': ['#ebdbb2', '#282828']}
+                     'solarized_dark': ['#839496', '#002b36']}
     palettevalues = {'tango': 0,
                      'linux': 1,
                      'xterm': 2,
                      'rxvt': 3,
                      'ambience': 4,
                      'solarized': 5,
-                     'gruvbox_light': 6,
-                     'gruvbox_dark': 7,
-                     'custom': 8}
+                     'custom': 6}
     palettes = {'tango': '#000000:#cc0000:#4e9a06:#c4a000:#3465a4:\
 #75507b:#06989a:#d3d7cf:#555753:#ef2929:#8ae234:#fce94f:#729fcf:\
 #ad7fa8:#34e2e2:#eeeeec',
@@ -86,13 +80,7 @@ class PrefsEditor:
 #729fcf:#ad7fa8:#34e2e2:#eeeeec',
                 'solarized': '#073642:#dc322f:#859900:#b58900:\
 #268bd2:#d33682:#2aa198:#eee8d5:#002b36:#cb4b16:#586e75:#657b83:\
-#839496:#6c71c4:#93a1a1:#fdf6e3',
-                'gruvbox_light': '#fbf1c7:#cc241d:#98971a:#d79921:\
-#458588:#b16286:#689d6a:#7c6f64:#928374:#9d0006:#79740e:#b57614:\
-#076678:#8f3f71:#427b58:#3c3836',
-                'gruvbox_dark': '#282828:#cc241d:#98971a:#d79921:\
-#458588:#b16286:#689d6a:#a89984:#928374:#fb4934:#b8bb26:#fabd2f:\
-#83a598:#d3869b:#8ec07c:#ebdbb2'}
+#839496:#6c71c4:#93a1a1:#fdf6e3'}
     keybindingnames = { 'zoom_in'          : _('Increase font size'),
                         'zoom_out'         : _('Decrease font size'),
                         'zoom_normal'      : _('Restore original font size'),
@@ -233,8 +221,6 @@ class PrefsEditor:
         termsepsize = self.config['handle_size']
         widget = guiget('handlesize')
         widget.set_value(float(termsepsize))
-        widget = guiget('handlesize_value_label')
-        widget.set_text(str(termsepsize))
         # Window geometry hints
         geomhint = self.config['geometry_hinting']
         widget = guiget('wingeomcheck')
@@ -254,9 +240,6 @@ class PrefsEditor:
         # Window borders
         widget = guiget('winbordercheck')
         widget.set_active(not self.config['borderless'])
-        # Extra styling
-        widget = guiget('extrastylingcheck')
-        widget.set_active(self.config['extra_styling'])
         # Tab bar position
         option = self.config['tab_position']
         widget = guiget('tabposcombo')
@@ -574,8 +557,6 @@ class PrefsEditor:
         # Inactive terminal shading
         widget = guiget('inactive_color_offset')
         widget.set_value(float(self.config['inactive_color_offset']))
-        widget = guiget('inactive_color_offset_value_label')
-        widget.set_text('%d%%' % (int(float(self.config['inactive_color_offset'])*100)))
         # Use custom URL handler
         widget = guiget('use_custom_url_handler_checkbox')
         widget.set_active(self.config['use_custom_url_handler'])
@@ -693,11 +674,6 @@ class PrefsEditor:
     def on_winbordercheck_toggled(self, widget):
         """Window border setting changed"""
         self.config['borderless'] = not widget.get_active()
-        self.config.save()
-
-    def on_extrastylingcheck_toggled(self, widget):
-        """Extra styling setting changed"""
-        self.config['extra_styling'] = widget.get_active()
         self.config.save()
 
     def on_hidefromtaskbcheck_toggled(self, widget):
@@ -871,7 +847,7 @@ class PrefsEditor:
         self.config['scrollbar_position'] = value
         self.config.save()
 
-    def on_darken_background_scale_value_changed(self, widget):
+    def on_darken_background_scale_change_value(self, widget, scroll, _value_not_rounded):
         """Background darkness setting changed"""
         value = widget.get_value()  # This one is rounded according to the UI.
         if value > 1.0:
@@ -1048,28 +1024,22 @@ class PrefsEditor:
         self.config['title_transmit_fg_color'] = color2hex(widget)
         self.config.save()
 
-    def on_inactive_color_offset_value_changed(self, widget):
+    def on_inactive_color_offset_change_value(self, widget, scroll, _value_not_rounded):
         """Inactive color offset setting changed"""
         value = widget.get_value()  # This one is rounded according to the UI.
         if value > 1.0:
           value = 1.0
         self.config['inactive_color_offset'] = value
         self.config.save()
-        guiget = self.builder.get_object
-        label_widget = guiget('inactive_color_offset_value_label')
-        label_widget.set_text('%d%%' % (int(value * 100)))
 
-    def on_handlesize_value_changed(self, widget):
+    def on_handlesize_change_value(self, widget, scroll, _value_not_rounded):
         """Handle size changed"""
         value = widget.get_value()  # This one is rounded according to the UI.
         value = int(value)          # Cast to int.
-        if value > 20:
-            value = 20
+        if value > 5:
+            value = 5
         self.config['handle_size'] = value
         self.config.save()
-        guiget = self.builder.get_object
-        label_widget = guiget('handlesize_value_label')
-        label_widget.set_text(str(value))
 
     def on_focuscombo_changed(self, widget):
         """Focus type changed"""
@@ -1144,7 +1114,7 @@ class PrefsEditor:
             res = model.append([newprofile, True])
             if res:
                 path = model.get_path(res)
-                treeview.set_cursor(path, column=treeview.get_column(0),
+                treeview.set_cursor(path, focus_column=treeview.get_column(0),
                                     start_editing=True)
 
         self.layouteditor.update_profiles()
@@ -1189,7 +1159,8 @@ class PrefsEditor:
             res = model.append([name, True])
             if res:
                 path = model.get_path(res)
-                treeview.set_cursor(path, start_editing=True)
+                treeview.set_cursor(path, focus_column=treeview.get_column(0),
+                                    start_editing=True)
 
         self.config.save()
 
@@ -1585,6 +1556,9 @@ class LayoutEditor:
         self.profile_ids_to_profile = {}
         self.profile_profile_to_ids= {}
         chooser = self.builder.get_object('layout_profile_chooser')
+        model = chooser.get_model()
+
+        model.clear()
 
         profiles = self.config.list_profiles()
         profiles.sort()
@@ -1592,7 +1566,7 @@ class LayoutEditor:
         for profile in profiles:
             self.profile_ids_to_profile[i] = profile
             self.profile_profile_to_ids[profile] = i
-            chooser.append_text(profile)
+            model.append([profile])
             i = i + 1
 
     def on_layout_selection_changed(self, selection):

@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/python
 #  Terminator - multiple gnome terminals in one window
 #   Copyright (C) 2006-2010  cmsj@tenshu.net
 #
@@ -40,7 +40,6 @@ class Keybindings:
         'shift':    Gdk.ModifierType.SHIFT_MASK,
         'alt':      Gdk.ModifierType.MOD1_MASK,
         'super':    Gdk.ModifierType.SUPER_MASK,
-        'hyper':    Gdk.ModifierType.HYPER_MASK,
     }
 
     empty = {}

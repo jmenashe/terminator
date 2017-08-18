@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/python
 # Terminator by Chris Jones <cmsj@tenshu.net>
 # GPL v2 only
 """window.py - class for the main Terminator window"""
@@ -8,7 +8,7 @@ import time
 import uuid
 import gi
 from gi.repository import GObject
-from gi.repository import Gtk, Gdk, GdkX11
+from gi.repository import Gtk, Gdk
 
 from util import dbg, err, make_uuid, display_manager
 import util
@@ -23,8 +23,8 @@ if display_manager() == 'X11':
         gi.require_version('Keybinder', '3.0')
         from gi.repository import Keybinder
         Keybinder.init()
-    except (ImportError, ValueError):
-        err('Unable to load Keybinder module. This means the \
+    except ImportError:
+        err('Warning: python-keybinder is not installed. This means the \
 hide_window shortcut will be unavailable')
 
 # pylint: disable-msg=R0904
@@ -63,8 +63,6 @@ class Window(Container, Gtk.Window):
         GObject.GObject.__init__(self)
         GObject.type_register(Window)
         self.register_signals(Window)
-
-        self.get_style_context().add_class("terminator-terminal-window")
 
 #        self.set_property('allow-shrink', True)  # FIXME FOR GTK3, or do we need this actually?
         icon_to_apply=''
@@ -127,7 +125,7 @@ class Window(Container, Gtk.Window):
             if display_manager() == 'X11':
                 try:
                     self.hidebound = Keybinder.bind(
-                        self.config['keybindings']['hide_window'].replace('<Shift>',''),
+                        self.config['keybindings']['hide_window'],
                         self.on_hide_window)
                 except (KeyError, NameError):
                     pass
@@ -270,11 +268,8 @@ class Window(Container, Gtk.Window):
         """Handle a window close request"""
         maker = Factory()
         if maker.isinstance(self.get_child(), 'Terminal'):
-            if self.get_property('term_zoomed') == True:
-                return(self.confirm_close(window, _('window')))
-            else:
-                dbg('Window::on_delete_event: Only one child, closing is fine')
-                return(False)
+            dbg('Window::on_delete_event: Only one child, closing is fine')
+            return(False)
         elif maker.isinstance(self.get_child(), 'Container'):
             return(self.confirm_close(window, _('window')))
         else:
@@ -310,10 +305,10 @@ class Window(Container, Gtk.Window):
             self.show()
             self.grab_focus()
             try:
-                t = GdkX11.x11_get_server_time(self.get_window())
-            except (TypeError, AttributeError):
+                t = GdkX11.x11_get_server_time(self.window)
+            except AttributeError:
                 t = 0
-            self.get_window().focus(t)
+            self.window.focus(t)
         else:
             self.position = self.get_position()
             self.hidefunc()
@@ -468,12 +463,10 @@ class Window(Container, Gtk.Window):
         if not sibling:
             sibling = maker.make('Terminal')
             sibling.set_cwd(cwd)
-            if self.config['always_split_with_profile']:
-                sibling.force_set_profile(None, widget.get_profile())
             sibling.spawn_child()
             if widget.group and self.config['split_to_group']:
                 sibling.set_group(None, widget.group)
-        elif self.config['always_split_with_profile']:
+        if self.config['always_split_with_profile']:
             sibling.force_set_profile(None, widget.get_profile())
 
         self.add(container)

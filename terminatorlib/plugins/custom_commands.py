@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/python
 # Terminator by Chris Jones <cmsj@tenshu.net>
 # GPL v2 only
 """custom_commands.py - Terminator Plugin to add custom command menu entries"""
@@ -58,7 +58,6 @@ class CustomCommandsMenu(plugin.MenuItem):
 
     def callback(self, menuitems, menu, terminal):
         """Add our menu items to the menu"""
-        submenus = {}
         item = Gtk.MenuItem.new_with_mnemonic(_('_Custom Commands'))
         menuitems.append(item)
 
@@ -78,30 +77,16 @@ class CustomCommandsMenu(plugin.MenuItem):
             continue
           exe = command['command'].split(' ')[0]
           iconinfo = theme.choose_icon([exe], Gtk.IconSize.MENU, Gtk.IconLookupFlags.USE_BUILTIN)
-          leaf_name = command['name'].split('/')[-1]
-          branch_names = command['name'].split('/')[:-1]
-          target_submenu = submenu
-          parent_submenu = submenu
-          for idx in range(len(branch_names)):
-            lookup_name = '/'.join(branch_names[0:idx+1])
-            target_submenu = submenus.get(lookup_name, None)
-            if not target_submenu:
-              item = Gtk.MenuItem(_(branch_names[idx]))
-              parent_submenu.append(item)
-              target_submenu = Gtk.Menu()
-              item.set_submenu(target_submenu)
-              submenus[lookup_name] = target_submenu
-            parent_submenu = target_submenu
           if iconinfo:
             image = Gtk.Image()
             image.set_from_icon_name(exe, Gtk.IconSize.MENU)
-            menuitem = Gtk.ImageMenuItem(leaf_name)
+            menuitem = Gtk.ImageMenuItem(command['name'])
             menuitem.set_image(image)
           else:
-            menuitem = Gtk.MenuItem(leaf_name)
+            menuitem = Gtk.MenuItem(command["name"])
           terminals = terminal.terminator.get_target_terms(terminal)
           menuitem.connect("activate", self._execute, {'terminals' : terminals, 'command' : command['command'] })
-          target_submenu.append(menuitem)
+          submenu.append(menuitem)
         
     def _save_config(self):
       config = Config()
@@ -140,7 +125,6 @@ class CustomCommandsMenu(plugin.MenuItem):
                         _("_OK"), Gtk.ResponseType.ACCEPT
                       )
                     )
-      dbox.set_transient_for(widget.get_toplevel())
 
       icon_theme = Gtk.IconTheme.get_default()
       if icon_theme.lookup_icon('terminator-custom-commands', 48, 0):
@@ -230,13 +214,11 @@ class CustomCommandsMenu(plugin.MenuItem):
 
 
       hbox.pack_start(button_box, False, True, 0)
-      self.dbox = dbox
       dbox.show_all()
       res = dbox.run()
       if res == Gtk.ResponseType.ACCEPT:
         self.update_cmd_list(store)
         self._save_config()
-      del(self.dbox)
       dbox.destroy()
       return
 
@@ -289,7 +271,6 @@ class CustomCommandsMenu(plugin.MenuItem):
                           _("_OK"), Gtk.ResponseType.ACCEPT
                         )
                       )
-      dialog.set_transient_for(self.dbox)
       table = Gtk.Table(3, 2)
 
       label = Gtk.Label(label=_("Enabled:"))

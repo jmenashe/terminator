@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/python
 # Terminator by Chris Jones <cmsj@tenshu.net>
 # GPL v2 only
 """terminalshot.py - Terminator Plugin to take 'screenshots' of individual
@@ -6,7 +6,6 @@ terminals"""
 
 import os
 from gi.repository import Gtk
-from gi.repository import GdkPixbuf
 import terminatorlib.plugin as plugin
 from terminatorlib.translation import _
 from terminatorlib.util import widget_pixbuf
@@ -38,14 +37,13 @@ class TerminalShot(plugin.MenuItem):
         savedialog = Gtk.FileChooserDialog(title=_("Save image"),
                                            action=self.dialog_action,
                                            buttons=self.dialog_buttons)
-        savedialog.set_transient_for(_widget.get_toplevel())
         savedialog.set_do_overwrite_confirmation(True)
         savedialog.set_local_only(True)
 
         pixbuf = orig_pixbuf.scale_simple(orig_pixbuf.get_width() / 2, 
                                      orig_pixbuf.get_height() / 2,
                                      GdkPixbuf.InterpType.BILINEAR)
-        image = Gtk.Image.new_from_pixbuf(pixbuf)
+        image = Gtk.image_new_from_pixbuf(pixbuf)
         savedialog.set_preview_widget(image)
 
         savedialog.show_all()
@@ -54,6 +52,6 @@ class TerminalShot(plugin.MenuItem):
         if response == Gtk.ResponseType.OK:
             path = os.path.join(savedialog.get_current_folder(),
                                 savedialog.get_filename())
-            orig_pixbuf.savev(path, 'png', [], [])
+            orig_pixbuf.save(path, 'png')
 
         savedialog.destroy()
