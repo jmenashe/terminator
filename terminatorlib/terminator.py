@@ -444,6 +444,11 @@ class Terminator(Borg):
         # GTK3. We then have to fix all the widget backgrounds because the
         # widgets theming may not render it's own background.
         css = """
+
+
+            tab {
+              background-color: #AAA;
+            }
             .terminator-terminal-window {
                 background-color: alpha(@theme_bg_color,0); }
 
