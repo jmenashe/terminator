@@ -6,3 +6,5 @@ terminatorlib/meliae
 _trial_temp
 terminatorc
 build
+**/*.swp
+**/*.intltool*
